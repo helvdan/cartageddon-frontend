@@ -1,0 +1,140 @@
+/* src/components/ArtifactsSidebar.module.css */
+.sidebar {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 12px;
+  margin-bottom: 15px;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 16px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.stageHighlight {
+  color: #38bdf8;
+  text-transform: uppercase;
+}
+
+.cleanBtn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.cleanBtn:hover { background: #max-color, #dc2626; }
+
+.filterContainer {
+  position: relative;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.filterInput {
+  width: 100%;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 8px 30px 8px 10px;
+  color: #cbd5e1;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.filterInput:focus {
+  border-color: #38bdf8;
+}
+
+.clearFilterBtn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 12px;
+}
+
+.clearFilterBtn:hover { color: #94a3b8; }
+
+.filesContainer {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.emptyFallback {
+  text-align: center;
+  color: #64748b;
+  margin-top: 50px;
+}
+.emptyFallback p { margin: 0 0 5px 0; font-size: 14px; }
+.emptyFallback small { font-size: 12px; }
+
+.fileList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #0f172a;
+  border-left: 4px solid #475569;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  transition: transform 0.1s;
+}
+
+.fileItem.active {
+  border-color: var(--active-border-color);
+  background: #172554; /* Меняем фон на темно-синий оттенок, показывая выбор */
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.1); /* Легкое свечение */
+}
+
+.fileItem:hover {
+  transform: translateX(2px);
+}
+.fileItem.parquet.active {
+  border-left-color: #10b981;
+  --active-border-color: #10b981;
+}
+.fileItem.pkl.active {
+  border-left-color: #a855f7;
+  --active-border-color: #a855f7;
+}
+
+.fileIcon { font-size: 16px; }
+.fileName {
+  color: #cbd5e1;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

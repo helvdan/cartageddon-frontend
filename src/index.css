@@ -1,0 +1,23 @@
+:root {
+  --bg-color: #0f172a;
+  --panel-bg: #1e293b;
+  --text-color: #f8fafc;
+  --accent-color: #38bdf8;
+  --node-bg: #334155;
+  --node-active: #0284c7;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-color); /* Используем переменную */
+  color: var(--text-color);
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

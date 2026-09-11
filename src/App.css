@@ -1,0 +1,68 @@
+.etl-dashboard-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Запрещаем скролл для всей страницы */
+}
+
+#pipeline-container {
+    height: 20vh;
+    min-height: 20vh; /* Защита от сжатия */
+    flex: none;
+    background-color: var(--panel-bg); /* При необходимости */
+    border-bottom: 2px solid #475569;
+}
+
+#main-content {
+    height: 80vh;
+    display: flex;
+    overflow: hidden;
+}
+
+#sidebar {
+    width: 300px;
+    background-color: var(--panel-bg);
+    border-right: 2px solid #475569;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+#content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--bg-color);
+}
+
+#toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--panel-bg);
+    padding: 10px 20px;
+    border-bottom: 2px solid #475569;
+    height: 31px; /* Фиксированная высота вровень со строкой левого меню */
+    flex: none;
+}
+
+#table-view {
+    flex: 1; /* Забирает ровно половину от оставшегося места */
+    overflow: auto; /* Внутренний скролл для таблицы */
+    padding: 12px;
+    border: 1px solid #1e293b;
+}
+
+#logs {
+    flex: 1; /* Забирает точно такую же вторую половину места */
+    overflow-y: scroll; /* Внутренний скролл для строк логов */
+    background-color: #0f172a;
+    color: #e2e8f0;
+    padding: 12px;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 13px;
+    box-sizing: border-box;
+}
