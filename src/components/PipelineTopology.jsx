@@ -2,12 +2,40 @@ import { useState, useEffect } from 'react';
 import StageNode from './topology/StageNode';
 import StorageNode from './topology/StorageNode';
 import ConnectorArrow from './topology/ConnectorArrow';
-import { stageService } from '../services/api'
 
 const STAGES = ["extracted", "normalized", "deduplicated", "checked", "joined"];
 
 export default function PipelineTopology({ activeStage, onStageSelect }) {
-  console.log('PipelineTopology');
+  const [selectedDb, setSelectedDb] = useState(null);
+  const [postgresHealth, setPostgresHealth] = useState('empty');
+
+  const handleDbSelect = (dbName) => {
+    setSelectedDb((prev) => (prev === dbName ? null : dbName));
+  };
+
+  useEffect(() => {
+    const ws = new WebSocket("ws://127.0.0.1:8000/infra/postgres/ws/health");
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        // data пример: { 'state': 'disconnected' }
+        if (data && data.state) {
+          setPostgresHealth(data.state);
+        }
+      } catch (err) {
+        console.error("[WS Health Error] Ошибка парсинга:", err);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("[WS Health Error] Сбой подключения к health-api:", error);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   return (
     <svg viewBox="0 0 880 180" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
@@ -26,8 +54,9 @@ export default function PipelineTopology({ activeStage, onStageSelect }) {
         name="MySQL"
         x={0}
         y={60}
-        isTargetActive={activeStage === 'source-db'}
-        onClick={() => onStageSelect('source-db')}
+        isTargetActive={false}
+        isSelected={selectedDb === 'MySQL'}
+        onClick={() => handleDbSelect('MySQL')}
       />
 
       {/* Стрелка от MySQL к первой стадии */}
@@ -81,13 +110,18 @@ export default function PipelineTopology({ activeStage, onStageSelect }) {
         x={1100}
         y={25}
         isTargetActive={false}
+        isSelected={selectedDb === 'Postgres'}
+        healthStatus={postgresHealth}
+        onClick={() => handleDbSelect('Postgres')}
       />
 
       <StorageNode
         name="MinIO S3"
         x={1100}
         y={125}
-        isTargetActive={true}
+        isTargetActive={false}
+        isSelected={selectedDb === 'MinIO S3'}
+        onClick={() => handleDbSelect('MinIO S3')}
       />
 
     </svg>

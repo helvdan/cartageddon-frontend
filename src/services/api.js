@@ -10,6 +10,31 @@ const api = axios.create({
 
 export const stageService = {
 
+  truncateDb: async (dbName) => {
+    const endpoint = `/infra/${dbName.toLowerCase()}/truncate`;
+    const response = await api.post(endpoint);
+
+    if (response?.status === 200) {
+      const cleanedTables = response.data.tables.join(', ');
+
+      toast.success(
+  cleanedTables.length > 0
+          ? `Таблицы успешно очищены: ${cleanedTables}`
+          : 'Нет таблиц для очистки.',
+        {
+        duration: 5000,
+        icon: null,
+        style: {
+            background: '#064e3b', // Глубокий темно-зеленый (emerald-900/950)
+            color: '#a7f3d0',      // Мягкий светло-зеленый текст (emerald-200)
+            border: '1px solid #059669', // Изумрудная рамка
+        }
+      });
+    }
+
+    return response.data;
+  },
+
   getContext: async () => {
     const response = await api.get('/context');
     return response.data;

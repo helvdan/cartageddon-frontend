@@ -93,7 +93,7 @@ export default function ContextSelector({ context, setContext, onContextChanged 
         letterSpacing: '0.5px',
         marginBottom: '2px'
       }}>
-        КОНТЕКСТ [TAB]
+        КОНФИГ [TAB]
       </span>
 
       {availableContexts.map((option) => {
