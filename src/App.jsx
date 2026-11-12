@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useReducer, useCallback } from 'react';
 import { stageService } from './services/api';
 import ContextSelector from './components/ContextSelector';
 import PipelineTopology from './components/PipelineTopology';
+import { pipelineSelectionReducer } from './components/topology/pipelineSelection';
 import ArtifactsSidebar from './components/ArtifactsSidebar';
 import Toolbar from './components/Toolbar';
 import DataTable from './components/DataTable';
@@ -9,7 +10,11 @@ import { Toaster } from 'react-hot-toast';
 import './App.css';
 
 export default function App() {
-  const [activeStage, setActiveStage] = useState('extracted');
+  const [selection, dispatchSelection] = useReducer(pipelineSelectionReducer, null);
+  const activeStage = selection?.type === 'stage' ? selection.id : null;
+  const selectedDb = selection?.type === 'storage' ? selection.id : null;
+  const [stages, setStages] = useState(null);
+  const [stagesError, setStagesError] = useState('');
   const [currentArtifacts, setCurrentArtifacts] = useState([]);
   const [tableData, setTableData] = useState(null);
   const [compareData, setCompareData] = useState(null);
@@ -18,6 +23,24 @@ export default function App() {
   const [context, setContext] = useState('');
 
   const logsEndRef = useRef(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    stageService.getPipelineStages(controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setStages(data.stages);
+        dispatchSelection({ type: 'select-stage', id: data.stages[0]?.[0]?.id });
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        console.error('Ошибка загрузки стадий пайплайна:', error);
+        setStagesError('Не удалось загрузить стадии пайплайна. Обновите страницу, чтобы повторить запрос.');
+      });
+
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     // scrollIntoView плавно прокрутит контейнер к нашему невидимому элементу-якорю
@@ -49,6 +72,7 @@ export default function App() {
   }, []);
 
   const handleClearContextData = () => {
+    dispatchSelection({ type: 'context-changed' });
     setLogs([]);        // Сбрасываем логи в пустой массив
     setTableData(null);  // Очищаем активную таблицу
     setCompareData(null);// Очищаем таблицу сравнения
@@ -56,12 +80,24 @@ export default function App() {
   };
 
   const handleStageSelect = (stageName) => {
-    setActiveStage(stageName);
+    dispatchSelection({ type: 'select-stage', id: stageName });
     setCurrentArtifacts([])
     setTableData(null);
     setCompareData(null);
     setSelectedFile(null);
   };
+
+  const handleStorageSelect = (dbName) => {
+    dispatchSelection({ type: 'toggle-storage', id: dbName });
+    setCurrentArtifacts([]);
+    setTableData(null);
+    setCompareData(null);
+    setSelectedFile(null);
+  };
+
+  const handleStorageDeselect = useCallback((dbName) => {
+    dispatchSelection({ type: 'deselect-storage', id: dbName });
+  }, []);
 
   const handleCompareTables = async () => {
     console.log("handleCompareTables для файла:", selectedFile);
@@ -86,9 +122,11 @@ export default function App() {
     if (!activeStage) return;
 
     // Открываем WebSocket к нашей конкретной стадии
+    let disposed = false;
     const ws = new WebSocket(`ws://127.0.0.1:8000/ws/artifacts/${activeStage}`);
 
     ws.onmessage = (event) => {
+      if (disposed) return;
       try {
         const files = JSON.parse(event.data);
         console.log(`[WS Artifacts] Получены файлы для ${activeStage}:`, files);
@@ -104,6 +142,7 @@ export default function App() {
 
     // Очистка: при переключении стадии старый вебсокет закрывается автоматически,
     return () => {
+      disposed = true;
       console.log(`[WS Artifacts Cleanup] Закрываем соединение для ${activeStage}`);
       ws.close();
     };
@@ -180,7 +219,18 @@ export default function App() {
         overflow: 'hidden'
       }}>
         <ContextSelector context={context} setContext={setContext} onContextChanged={handleClearContextData}/>
-        <PipelineTopology activeStage={activeStage} onStageSelect={handleStageSelect}/>
+        {/* Новый конфиг сбрасывает состояние БД и выделение в графе. */}
+        <PipelineTopology
+          key={context}
+          context={context}
+          stages={stages}
+          error={stagesError}
+          activeStage={activeStage}
+          selectedDb={selectedDb}
+          onStageSelect={handleStageSelect}
+          onStorageSelect={handleStorageSelect}
+          onStorageDeselect={handleStorageDeselect}
+        />
       </div>
 
       {/* Нижний ярус приложения: двухколоночная сетка */}
@@ -208,7 +258,7 @@ export default function App() {
               isComparing={!!compareData}
               onCompare={handleCompareTables}
               onRerun={handleRerunPipeline}
-              isRunning={loadingStage === activeStage}
+              isRunning={loadingStage !== null && loadingStage === activeStage}
               onRunAll={handleRunPipeline}
               isPipelineRunning={loadingStage === 'all'}
             />
