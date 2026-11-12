@@ -1,129 +1,80 @@
-import { useState, useEffect } from 'react';
 import StageNode from './topology/StageNode';
 import StorageNode from './topology/StorageNode';
 import ConnectorArrow from './topology/ConnectorArrow';
+import { createPipelineLayout, STAGE_WIDTH, STAGE_HEIGHT, CENTER_Y } from './topology/pipelineLayout';
+import { useStorageHealth } from './topology/useStorageHealth';
 
-const STAGES = ["extracted", "normalized", "deduplicated", "checked", "joined"];
+export default function PipelineTopology({
+  context, stages, error, activeStage, selectedDb,
+  onStageSelect, onStorageSelect, onStorageDeselect,
+}) {
+  const postgresHealth = useStorageHealth(context, 'postgres', 'Postgres', onStorageDeselect);
+  const s3Health = useStorageHealth(context, 's3', 'MinIO S3', onStorageDeselect);
+  const storageHealth = { Postgres: postgresHealth, 'MinIO S3': s3Health };
 
-export default function PipelineTopology({ activeStage, onStageSelect }) {
-  const [selectedDb, setSelectedDb] = useState(null);
-  const [postgresHealth, setPostgresHealth] = useState('empty');
+  if (error) return <div role="alert" style={{ flex: 1, textAlign: 'center', color: '#f87171' }}>{error}</div>;
+  if (stages === null) return <div role="status" style={{ flex: 1, textAlign: 'center' }}>Загрузка стадий пайплайна…</div>;
+  if (stages.length === 0) return <div role="status" style={{ flex: 1, textAlign: 'center' }}>В пайплайне нет стадий.</div>;
 
-  const handleDbSelect = (dbName) => {
-    setSelectedDb((prev) => (prev === dbName ? null : dbName));
-  };
-
-  useEffect(() => {
-    const ws = new WebSocket("ws://127.0.0.1:8000/infra/postgres/ws/health");
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // data пример: { 'state': 'disconnected' }
-        if (data && data.state) {
-          setPostgresHealth(data.state);
-        }
-      } catch (err) {
-        console.error("[WS Health Error] Ошибка парсинга:", err);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error("[WS Health Error] Сбой подключения к health-api:", error);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, []);
+  const layout = createPipelineLayout(stages);
 
   return (
-    <svg viewBox="0 0 880 180" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox={layout.viewBox} width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
 
       <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
         </marker>
-        <marker id="arrow-active" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="arrow-active" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 1 L 10 5 L 0 9 z" fill="#29b6f6" />
         </marker>
       </defs>
 
-      {/* --- ВХОД: MySQL (Используем твои оригинальные координаты, сдвинутые через translate) --- */}
+      {/* Входное хранилище выровнено по центру основной цепочки. */}
       <StorageNode
         name="MySQL"
         x={0}
-        y={60}
+        y={CENTER_Y - 20}
         isTargetActive={false}
         isSelected={selectedDb === 'MySQL'}
-        onClick={() => handleDbSelect('MySQL')}
+        onClick={() => onStorageSelect('MySQL')}
+        onDeselect={() => onStorageDeselect('MySQL')}
       />
 
-      {/* Стрелка от MySQL к первой стадии */}
-      <ConnectorArrow x1={90} y1={75} x2={135} y2={75} isActive={activeStage === 'source-db'} />
+      {layout.connectors.map((connector) => (
+        <ConnectorArrow
+          key={connector.key}
+          d={connector.d}
+          isActive={activeStage === connector.stage}
+        />
+      ))}
 
-      {/* --- СТАДИИ ПАЙПЛАЙНА --- */}
-      {STAGES.map((stage, idx) => {
-        // Выравниваем прямоугольники стадий по высоте (y=40), чтобы они шли вровень с цилиндрами
-        const xPos = 100 + idx * 165;
-        const isActive = activeStage === stage;
-        const isArrowActive = activeStage === stage;
+      {layout.nodes.map((stage) => (
+        <StageNode
+          key={stage.id}
+          name={stage.id}
+          x={stage.x}
+          y={stage.y}
+          width={STAGE_WIDTH}
+          height={STAGE_HEIGHT}
+          isActive={activeStage === stage.id}
+          onClick={() => onStageSelect(stage.id)}
+        />
+      ))}
 
-        return (
-          <g key={stage}>
-            <StageNode
-              name={stage}
-              x={xPos}
-              y={60}
-              isActive={isActive}
-              onClick={() => onStageSelect(stage)}
-            />
-
-            {/* Стрелка к следующей стадии */}
-            {idx < STAGES.length - 1 && (
-              <ConnectorArrow
-                x1={xPos + 125}
-                y1={90}
-                x2={xPos + 145}
-                y2={90}
-                isActive={isArrowActive}
-              />
-            )}
-          </g>
-        );
-      })}
-
-      {/* Разветвление после "joined" (Конец joined на X=740, Y=75) */}
-      <ConnectorArrow d="M 880 90 L 910 90 L 910 40 L 925 40" isActive={activeStage === 'joined'} />
-      <ConnectorArrow d="M 880 90 L 910 90 L 910 140 L 925 140" isActive={activeStage === 'joined'} />
-
-      {/* --- ЛОАДЕРЫ --- */}
-      <StageNode name="loading_db" x={930} y={15} isActive={activeStage === 'loading_db'} />
-      <ConnectorArrow x1={1040} y1={40} x2={1075} y2={40} />
-
-      <StageNode name="loading_s3" x={930} y={115} isActive={activeStage === 'loading_s3'} />
-      <ConnectorArrow x1={1040} y1={140} x2={1075} y2={140} />
-
-      {/* --- ФИНАЛЬНЫЕ ХРАНИЛИЩА (Цилиндры) --- */}
-      <StorageNode
-        name="Postgres"
-        x={1100}
-        y={25}
-        isTargetActive={false}
-        isSelected={selectedDb === 'Postgres'}
-        healthStatus={postgresHealth}
-        onClick={() => handleDbSelect('Postgres')}
-      />
-
-      <StorageNode
-        name="MinIO S3"
-        x={1100}
-        y={125}
-        isTargetActive={false}
-        isSelected={selectedDb === 'MinIO S3'}
-        onClick={() => handleDbSelect('MinIO S3')}
-      />
-
+      {layout.storages.map((storage) => (
+        <StorageNode
+          key={storage.stage}
+          name={storage.name}
+          x={storage.x}
+          y={storage.y}
+          isTargetActive={false}
+          isSelected={selectedDb === storage.name}
+          healthStatus={storageHealth[storage.name] ?? 'empty'}
+          onClick={() => onStorageSelect(storage.name)}
+          onDeselect={() => onStorageDeselect(storage.name)}
+        />
+      ))}
     </svg>
   );
 }

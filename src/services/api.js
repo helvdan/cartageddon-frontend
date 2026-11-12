@@ -10,17 +10,31 @@ const api = axios.create({
 
 export const stageService = {
 
-  truncateDb: async (dbName) => {
-    const endpoint = `/infra/${dbName.toLowerCase()}/truncate`;
-    const response = await api.post(endpoint);
+  getPipelineStages: async (signal) => {
+    const response = await api.get('/pipeline/stages', { signal });
+    return response.data;
+  },
+
+  clearStorage: async (name) => {
+    const storageEndpoint = name === 'MinIO S3' ? 's3' : name.toLowerCase();
+    let response;
+    try {
+      response = await api.post(`/infra/${storageEndpoint}/truncate`);
+    } catch (error) {
+      toast.error(`Не удалось очистить ${name}. Проверьте подключение и права доступа.`);
+      throw error;
+    }
 
     if (response?.status === 200) {
-      const cleanedTables = response.data.tables.join(', ');
+      const cleanedTables = (response.data.tables ?? []).join(', ');
+      const message = storageEndpoint === 's3'
+        ? `Удалено объектов S3: ${response.data.deleted_objects}`
+        : cleanedTables.length > 0
+          ? `Таблицы успешно очищены: ${cleanedTables}`
+          : 'Нет таблиц для очистки.';
 
       toast.success(
-  cleanedTables.length > 0
-          ? `Таблицы успешно очищены: ${cleanedTables}`
-          : 'Нет таблиц для очистки.',
+        message,
         {
         duration: 5000,
         icon: null,
